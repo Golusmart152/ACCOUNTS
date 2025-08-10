@@ -2,7 +2,7 @@ import sqlite3
 import datetime
 from dateutil.relativedelta import relativedelta
 
-DATABASE_PATH = '../db/accounting.db'
+DATABASE_PATH = 'db/accounting.db'
 
 # --- Connection ---
 def get_db_connection():
