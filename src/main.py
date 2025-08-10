@@ -135,7 +135,7 @@ class App(ctk.CTk):
     def dashboard_button_event(self): self.show_frame("Dashboard")
     def hsn_button_event(self): self.frames["HSNFrame"].load_data(); self.show_frame("HSNFrame")
     def godowns_button_event(self): self.frames["GodownFrame"].load_data(); self.show_frame("GodownFrame")
-    def items_button_event(self): self.frames["ItemFrame"].load_items(); self.show_frame("ItemFrame")
+    def items_button_event(self): self.frames["ItemFrame"].load_data(); self.show_frame("ItemFrame")
     def assembly_button_event(self): self.frames["AssemblyFrame"].load_data(); self.show_frame("AssemblyFrame")
     def suppliers_button_event(self): self.frames["SupplierFrame"].load_data(); self.show_frame("SupplierFrame")
     def purchases_button_event(self): self.frames["PurchaseFrame"].load_data(); self.show_frame("PurchaseFrame")
