@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from tkinter import ttk
-from . import db_manager
+import db_manager
 
 class WarrantyReportFrame(ctk.CTkFrame):
     def __init__(self, master):

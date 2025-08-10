@@ -1,8 +1,8 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
-from . import db_manager
-from . import csv_generator
-from . import pdf_generator
+import db_manager
+import csv_generator
+import pdf_generator
 import datetime
 
 class ExportFrame(ctk.CTkFrame):

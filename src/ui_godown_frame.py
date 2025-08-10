@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from tkinter import ttk, messagebox
-from . import db_manager
+import db_manager
 
 class GodownFrame(ctk.CTkFrame):
     def __init__(self, master):

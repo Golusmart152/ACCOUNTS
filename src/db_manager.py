@@ -2,7 +2,7 @@ import sqlite3
 import datetime
 from dateutil.relativedelta import relativedelta
 
-DATABASE_PATH = 'db/accounting.db'
+DATABASE_PATH = '../db/accounting.db'
 
 # --- Connection ---
 def get_db_connection():
@@ -327,7 +327,7 @@ def get_all_items():
     SELECT
         i.id, i.name, i.category, u.name as unit_name,
         i.purchase_price, i.selling_price, i.default_warranty_months,
-        i.minimum_stock_level, i.is_serialized,
+        i.minimum_stock_level, i.is_serialized, i.is_assembled_item,
         h.hsn_code, g.rate as gst_rate,
         i.hsn_code_id, i.gst_slab_id, i.unit_id
     FROM items i
@@ -1263,3 +1263,148 @@ def universal_search(search_term):
             conn.close()
 
     return all_results
+
+# --- Dashboard Functions ---
+def get_monthly_sales_summary():
+    """Gets monthly sales summary for the current month."""
+    conn = get_db_connection()
+    try:
+        # Get current month's first and last day
+        today = datetime.date.today()
+        first_day = today.replace(day=1)
+        if today.month == 12:
+            last_day = today.replace(year=today.year + 1, month=1, day=1) - datetime.timedelta(days=1)
+        else:
+            last_day = today.replace(month=today.month + 1, day=1) - datetime.timedelta(days=1)
+        
+        query = """
+        SELECT
+            COUNT(*) as count,
+            IFNULL(SUM(total_amount), 0) as total,
+            IFNULL(SUM(taxable_amount), 0) as taxable_total,
+            IFNULL(SUM(total_gst_amount), 0) as gst_total
+        FROM sales_invoices
+        WHERE invoice_date BETWEEN ? AND ?
+        """
+        result = conn.execute(query, (first_day.isoformat(), last_day.isoformat())).fetchone()
+        return dict(result) if result else {'count': 0, 'total': 0, 'taxable_total': 0, 'gst_total': 0}
+    except sqlite3.Error as e:
+        print(f"Error getting monthly sales summary: {e}")
+        return {'count': 0, 'total': 0, 'taxable_total': 0, 'gst_total': 0}
+    finally:
+        conn.close()
+
+def get_monthly_purchase_summary():
+    """Gets monthly purchase summary for the current month."""
+    conn = get_db_connection()
+    try:
+        # Get current month's first and last day
+        today = datetime.date.today()
+        first_day = today.replace(day=1)
+        if today.month == 12:
+            last_day = today.replace(year=today.year + 1, month=1, day=1) - datetime.timedelta(days=1)
+        else:
+            last_day = today.replace(month=today.month + 1, day=1) - datetime.timedelta(days=1)
+        
+        query = """
+        SELECT
+            COUNT(*) as count,
+            IFNULL(SUM(total_amount), 0) as total,
+            IFNULL(SUM(taxable_amount), 0) as taxable_total,
+            IFNULL(SUM(total_gst_amount), 0) as gst_total
+        FROM purchase_invoices
+        WHERE invoice_date BETWEEN ? AND ?
+        """
+        result = conn.execute(query, (first_day.isoformat(), last_day.isoformat())).fetchone()
+        return dict(result) if result else {'count': 0, 'total': 0, 'taxable_total': 0, 'gst_total': 0}
+    except sqlite3.Error as e:
+        print(f"Error getting monthly purchase summary: {e}")
+        return {'count': 0, 'total': 0, 'taxable_total': 0, 'gst_total': 0}
+    finally:
+        conn.close()
+
+def get_overdue_receivables_summary():
+    """Gets summary of overdue receivables (unpaid sales invoices)."""
+    conn = get_db_connection()
+    try:
+        query = """
+        SELECT
+            COUNT(*) as count,
+            IFNULL(SUM(total_amount - amount_paid), 0) as total
+        FROM sales_invoices
+        WHERE status != 'PAID' AND (total_amount - amount_paid) > 0
+        """
+        result = conn.execute(query).fetchone()
+        return dict(result) if result else {'count': 0, 'total': 0}
+    except sqlite3.Error as e:
+        print(f"Error getting overdue receivables summary: {e}")
+        return {'count': 0, 'total': 0}
+    finally:
+        conn.close()
+
+def get_recent_activities(limit=10):
+    """Gets recent business activities for dashboard display."""
+    conn = get_db_connection()
+    try:
+        # Union query to get recent activities from different tables
+        query = """
+        SELECT * FROM (
+            SELECT
+                invoice_date as date,
+                'sale' as type,
+                'Created invoice ' || invoice_number || ' for customer' as description,
+                id
+            FROM sales_invoices
+            UNION ALL
+            SELECT
+                invoice_date as date,
+                'purchase' as type,
+                'Recorded purchase ' || invoice_number || ' from supplier' as description,
+                id
+            FROM purchase_invoices
+            UNION ALL
+            SELECT
+                payment_date as date,
+                'payment' as type,
+                'Received payment ₹' || CAST(amount as TEXT) || ' from customer' as description,
+                id
+            FROM customer_payments
+            UNION ALL
+            SELECT
+                payment_date as date,
+                'payment' as type,
+                'Made payment ₹' || CAST(amount as TEXT) || ' to supplier' as description,
+                id
+            FROM supplier_payments
+        )
+        ORDER BY date DESC
+        LIMIT ?
+        """
+        results = conn.execute(query, (limit,)).fetchall()
+        
+        activities = []
+        for row in results:
+            # Calculate time ago (simplified)
+            activity_date = datetime.datetime.fromisoformat(row['date']).date()
+            today = datetime.date.today()
+            days_ago = (today - activity_date).days
+            
+            if days_ago == 0:
+                time_str = "Today"
+            elif days_ago == 1:
+                time_str = "1 day ago"
+            else:
+                time_str = f"{days_ago} days ago"
+            
+            activities.append({
+                'type': row['type'],
+                'description': row['description'],
+                'time': time_str
+            })
+        
+        return activities
+    except sqlite3.Error as e:
+        print(f"Error getting recent activities: {e}")
+        return []
+    finally:
+        conn.close()

@@ -1,8 +1,8 @@
 import customtkinter as ctk
 from tkinter import ttk, filedialog, messagebox
-from . import db_manager
-from . import csv_generator
-from . import csv_validator
+import db_manager
+import csv_generator
+import csv_validator
 import os
 
 class ImportFrame(ctk.CTkFrame):

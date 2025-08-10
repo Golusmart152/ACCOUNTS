@@ -2,7 +2,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 import datetime
-from . import db_manager
+import db_manager
 from reportlab.lib.utils import ImageReader
 
 # A simple text wrapper

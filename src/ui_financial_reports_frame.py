@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from tkinter import ttk, messagebox
-from . import db_manager
-from . import pdf_generator
+import db_manager
+import pdf_generator
 
 class FinancialReportsFrame(ctk.CTkFrame):
     def __init__(self, master):

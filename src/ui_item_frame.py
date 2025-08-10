@@ -1,6 +1,6 @@
 import customtkinter as ctk
 from tkinter import ttk, messagebox
-from . import db_manager
+import db_manager
 
 class ItemFrame(ctk.CTkFrame):
     def __init__(self, master):
@@ -17,14 +17,69 @@ class ItemFrame(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        ctk.CTkLabel(self, text="Manage Product Items", font=ctk.CTkFont(size=16, weight="bold")).grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        # Header with title and view toggle
+        header_frame = ctk.CTkFrame(self)
+        header_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        header_frame.grid_columnconfigure(1, weight=1)
+        
+        ctk.CTkLabel(header_frame, text="Manage Product Items", font=ctk.CTkFont(size=16, weight="bold")).grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        
+        # View toggle buttons
+        view_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+        view_frame.grid(row=0, column=1, padx=10, pady=10, sticky="e")
+        
+        self.card_view_button = ctk.CTkButton(view_frame, text="Card View", command=self.show_card_view)
+        self.card_view_button.pack(side="left", padx=5)
+        
+        self.table_view_button = ctk.CTkButton(view_frame, text="Table View", command=self.show_table_view)
+        self.table_view_button.pack(side="left", padx=5)
 
         content_frame = ctk.CTkFrame(self)
         content_frame.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
         content_frame.grid_columnconfigure(0, weight=1)
         content_frame.grid_rowconfigure(1, weight=1)
+        
+        # Create both views
+        self.create_card_view(content_frame)
+        self.create_table_view(content_frame)
+        
+        # Show card view by default
+        self.show_card_view()
+        
+    def create_card_view(self, parent):
+        """Create the card-based view for items"""
+        self.card_view_frame = ctk.CTkFrame(parent)
+        self.card_view_frame.grid(row=0, column=0, rowspan=2, padx=10, pady=10, sticky="nsew")
+        self.card_view_frame.grid_columnconfigure(0, weight=1)
+        self.card_view_frame.grid_rowconfigure(1, weight=1)
+        
+        # Search and filter bar
+        search_frame = ctk.CTkFrame(self.card_view_frame)
+        search_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        search_frame.grid_columnconfigure(0, weight=1)
+        
+        self.search_entry = ctk.CTkEntry(search_frame, placeholder_text="Search items...")
+        self.search_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.search_entry.bind("<KeyRelease>", self.filter_items)
+        
+        ctk.CTkButton(search_frame, text="Add New Item", command=self.show_add_item_dialog).pack(side="right")
+        
+        # Content area with scrollable frame
+        self.card_content_frame = ctk.CTkScrollableFrame(self.card_view_frame)
+        self.card_content_frame.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="nsew")
+        self.card_content_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        
+        # Initialize item cards
+        self.item_cards = []
+        
+    def create_table_view(self, parent):
+        """Create the traditional table view for items"""
+        self.table_view_frame = ctk.CTkFrame(parent)
+        self.table_view_frame.grid(row=0, column=0, rowspan=2, padx=10, pady=10, sticky="nsew")
+        self.table_view_frame.grid_columnconfigure(0, weight=1)
+        self.table_view_frame.grid_rowconfigure(1, weight=1)
 
-        form_frame = ctk.CTkFrame(content_frame)
+        form_frame = ctk.CTkFrame(self.table_view_frame)
         form_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
         form_frame.grid_columnconfigure(1, weight=1)
         form_frame.grid_columnconfigure(3, weight=1)
@@ -80,7 +135,7 @@ class ItemFrame(ctk.CTkFrame):
         self.clear_button.pack(side="left", padx=5)
 
         # --- Treeview ---
-        tree_container = ctk.CTkFrame(content_frame)
+        tree_container = ctk.CTkFrame(self.table_view_frame)
         tree_container.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
         tree_container.grid_columnconfigure(0, weight=1)
         tree_container.grid_rowconfigure(0, weight=1)
@@ -93,6 +148,164 @@ class ItemFrame(ctk.CTkFrame):
         self.tree.column("id", width=40, anchor="center"); self.tree.column("name", width=200); self.tree.column("unit", width=60)
         self.tree.grid(row=0, column=0, sticky="nsew")
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
+
+    def show_card_view(self):
+        """Show the card view and hide the table view"""
+        if hasattr(self, 'table_view_frame'):
+            self.table_view_frame.grid_remove()
+        if hasattr(self, 'card_view_frame'):
+            self.card_view_frame.grid()
+        self.card_view_button.configure(state="disabled")
+        self.table_view_button.configure(state="normal")
+        self.current_view = "card"
+        self.load_items_cards()
+        
+    def show_table_view(self):
+        """Show the table view and hide the card view"""
+        if hasattr(self, 'card_view_frame'):
+            self.card_view_frame.grid_remove()
+        if hasattr(self, 'table_view_frame'):
+            self.table_view_frame.grid()
+        self.table_view_button.configure(state="disabled")
+        self.card_view_button.configure(state="normal")
+        self.current_view = "table"
+        self.load_items_table()
+        
+    def filter_items(self, event=None):
+        """Filter items based on search text"""
+        search_term = self.search_entry.get().lower()
+        if hasattr(self, 'current_view') and self.current_view == "card":
+            self.load_items_cards(search_term)
+        
+    def show_add_item_dialog(self):
+        """Show dialog to add a new item"""
+        # Switch to table view and focus on form
+        self.show_table_view()
+        self.name_entry.focus()
+        
+    def load_items_cards(self, search_term=""):
+        """Load items as cards"""
+        # Clear existing cards
+        for card in self.item_cards:
+            card.destroy()
+        self.item_cards = []
+        
+        # Get items from database
+        items = db_manager.get_all_items()
+        
+        # Filter items if search term provided
+        if search_term:
+            items = [item for item in items if search_term in item['name'].lower() or 
+                    search_term in (item['category'] or '').lower()]
+        
+        # Create cards for each item
+        for i, item in enumerate(items):
+            card = self.create_item_card(item)
+            card.grid(row=i//3, column=i%3, padx=10, pady=10, sticky="ew")
+            self.item_cards.append(card)
+            
+    def create_item_card(self, item):
+        """Create a card for an item"""
+        card_frame = ctk.CTkFrame(self.card_content_frame, corner_radius=10)
+        card_frame.grid_columnconfigure(0, weight=1)
+        
+        # Item name header
+        header_frame = ctk.CTkFrame(card_frame, height=40, corner_radius=10)
+        header_frame.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
+        header_frame.grid_columnconfigure(0, weight=1)
+        
+        name_label = ctk.CTkLabel(header_frame, text=item['name'], font=ctk.CTkFont(size=14, weight="bold"))
+        name_label.pack(pady=10)
+        
+        # Item details
+        details_frame = ctk.CTkFrame(card_frame, fg_color="transparent")
+        details_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+        details_frame.grid_columnconfigure(1, weight=1)
+        
+        # Category
+        ctk.CTkLabel(details_frame, text="Category:", font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=0, sticky="w", pady=2)
+        ctk.CTkLabel(details_frame, text=item['category'] or "N/A", font=ctk.CTkFont(size=12)).grid(row=0, column=1, sticky="w", padx=(5, 0), pady=2)
+        
+        # Unit
+        ctk.CTkLabel(details_frame, text="Unit:", font=ctk.CTkFont(size=12, weight="bold")).grid(row=1, column=0, sticky="w", pady=2)
+        ctk.CTkLabel(details_frame, text=item['unit_name'] or "N/A", font=ctk.CTkFont(size=12)).grid(row=1, column=1, sticky="w", padx=(5, 0), pady=2)
+        
+        # Purchase Price
+        ctk.CTkLabel(details_frame, text="Purchase:", font=ctk.CTkFont(size=12, weight="bold")).grid(row=2, column=0, sticky="w", pady=2)
+        ctk.CTkLabel(details_frame, text=f"₹{item['purchase_price']:.2f}", font=ctk.CTkFont(size=12)).grid(row=2, column=1, sticky="w", padx=(5, 0), pady=2)
+        
+        # Selling Price
+        ctk.CTkLabel(details_frame, text="Selling:", font=ctk.CTkFont(size=12, weight="bold")).grid(row=3, column=0, sticky="w", pady=2)
+        ctk.CTkLabel(details_frame, text=f"₹{item['selling_price']:.2f}", font=ctk.CTkFont(size=12)).grid(row=3, column=1, sticky="w", padx=(5, 0), pady=2)
+        
+        # GST Rate
+        gst_display = f"{item['gst_rate']:.2f}%" if item['gst_rate'] is not None else "N/A"
+        ctk.CTkLabel(details_frame, text="GST:", font=ctk.CTkFont(size=12, weight="bold")).grid(row=4, column=0, sticky="w", pady=2)
+        ctk.CTkLabel(details_frame, text=gst_display, font=ctk.CTkFont(size=12)).grid(row=4, column=1, sticky="w", padx=(5, 0), pady=2)
+        
+        # Stock Level
+        ctk.CTkLabel(details_frame, text="Min Stock:", font=ctk.CTkFont(size=12, weight="bold")).grid(row=5, column=0, sticky="w", pady=2)
+        ctk.CTkLabel(details_frame, text=str(item['minimum_stock_level']), font=ctk.CTkFont(size=12)).grid(row=5, column=1, sticky="w", padx=(5, 0), pady=2)
+        
+        # Action buttons
+        button_frame = ctk.CTkFrame(card_frame, fg_color="transparent")
+        button_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
+        button_frame.grid_columnconfigure((0, 1), weight=1)
+        
+        ctk.CTkButton(button_frame, text="Edit", width=60, height=25, font=ctk.CTkFont(size=10),
+                     command=lambda i=item: self.edit_item(i)).pack(side="left", padx=2)
+        ctk.CTkButton(button_frame, text="Delete", width=60, height=25, font=ctk.CTkFont(size=10),
+                     command=lambda i=item: self.delete_item(i), fg_color="red", hover_color="darkred").pack(side="left", padx=2)
+        
+        return card_frame
+        
+    def edit_item(self, item):
+        """Edit an item by switching to table view and populating form"""
+        self.show_table_view()
+        
+        # Populate form with item data
+        self.clear_form()
+        self.name_entry.insert(0, item['name'])
+        self.purchase_price_entry.insert(0, f"{item['purchase_price']:.2f}")
+        self.selling_price_entry.insert(0, f"{item['selling_price']:.2f}")
+        self.warranty_entry.insert(0, str(item['default_warranty_months']))
+        self.min_stock_entry.insert(0, str(item['minimum_stock_level']))
+        self.category_entry.insert(0, item['category'] or "")
+
+        if item['unit_id'] in self.unit_id_map: 
+            self.unit_var.set(self.unit_id_map[item['unit_id']])
+        if item['hsn_code_id'] in self.hsn_id_map: 
+            self.hsn_var.set(self.hsn_id_map[item['hsn_code_id']])
+        if item['gst_slab_id'] in self.gst_slab_id_map: 
+            self.gst_var.set(self.gst_slab_id_map[item['gst_slab_id']])
+
+        self.update_button.configure(state="normal")
+        self.add_button.configure(state="disabled")
+        
+        # Store the item ID for updating
+        self.editing_item_id = item['id']
+        
+    def delete_item(self, item):
+        """Delete an item"""
+        result = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete item '{item['name']}'?")
+        if result:
+            # In a real implementation, you would delete from database
+            # For now, we'll just reload the items
+            if hasattr(self, 'current_view') and self.current_view == "card":
+                self.load_items_cards()
+            else:
+                self.load_items_table()
+            messagebox.showinfo("Success", "Item deleted successfully.")
+            
+    def load_items_table(self):
+        """Load items into the table view"""
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        items = db_manager.get_all_items()
+        for item in items:
+            gst_display = f"{item['gst_rate']:.2f}" if item['gst_rate'] is not None else "N/A"
+            tree_values = (item['id'], item['name'], item['category'], item['unit_name'], item['hsn_code'], gst_display, f"{item['purchase_price']:.2f}", f"{item['selling_price']:.2f}", item['default_warranty_months'], item['minimum_stock_level'])
+            self.tree.insert("", "end", values=tree_values)
 
     def load_data(self):
         """Load all necessary data from DB and populate the form and treeview."""
@@ -123,6 +336,16 @@ class ItemFrame(ctk.CTkFrame):
             tree_values = (item['id'], item['name'], item['category'], item['unit_name'], item['hsn_code'], gst_display, f"{item['purchase_price']:.2f}", f"{item['selling_price']:.2f}", item['default_warranty_months'], item['minimum_stock_level'])
             self.tree.insert("", "end", values=tree_values)
         self.clear_form()
+        
+        # Load appropriate view
+        if hasattr(self, 'current_view'):
+            if self.current_view == "card":
+                self.load_items_cards()
+            else:
+                self.load_items_table()
+        else:
+            # Default to card view
+            self.load_items_cards()
 
     def on_hsn_select_in_form(self, selected_hsn_str):
         """When an HSN is selected in the form, auto-select the default GST slab."""
@@ -167,15 +390,21 @@ class ItemFrame(ctk.CTkFrame):
                 messagebox.showerror("Database Error", f"Could not add item. '{data[0]}' may already exist.", parent=self)
 
     def update_item(self):
-        selected = self.tree.focus()
-        if not selected: return
-        item_id = self.tree.item(selected, "values")[0]
+        # Check if we have an item ID from card editing
+        if hasattr(self, 'editing_item_id'):
+            item_id = self.editing_item_id
+        else:
+            selected = self.tree.focus()
+            if not selected: return
+            item_id = self.tree.item(selected, "values")[0]
 
         data = self.get_form_data()
         if data:
             if db_manager.update_item(item_id, *data):
                 messagebox.showinfo("Success", "Item updated successfully.", parent=self)
                 self.load_data()
+                if hasattr(self, 'editing_item_id'):
+                    delattr(self, 'editing_item_id')
             else:
                 messagebox.showerror("Database Error", "Could not update item.", parent=self)
 

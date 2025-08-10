@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from . import db_manager
+import db_manager
 from tkinter import filedialog, messagebox, W
 import datetime
 import os

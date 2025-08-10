@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from tkinter import ttk, messagebox
-from . import db_manager
-from .ui_invoice_detail_dialog import SalesInvoiceDetailDialog
+import db_manager
+from ui_invoice_detail_dialog import SalesInvoiceDetailDialog
 
 class AllTransactionsFrame(ctk.CTkFrame):
     def __init__(self, master):

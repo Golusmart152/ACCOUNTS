@@ -1,5 +1,5 @@
 import csv
-from . import db_manager
+import db_manager
 import datetime
 
 def validate_customers_csv(file_path):
